@@ -4,7 +4,7 @@ function Sidebar({ countries, onCountrySelect, countryStatuses, visitedCountries
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedContinent, setExpandedContinent] = useState(null)
 
-  // Group countries by continent/region
+  // Better region detection using continent codes or name patterns
   const countriesByRegion = useMemo(() => {
     if (!countries || !countries.features) return {}
     
@@ -18,37 +18,82 @@ function Sidebar({ countries, onCountrySelect, countryStatuses, visitedCountries
       'Other': []
     }
 
+    // Common country patterns by region
+    const regionPatterns = {
+      'Europe': [
+        'Albania', 'Andorra', 'Austria', 'Belarus', 'Belgium', 'Bosnia', 'Bulgaria',
+        'Croatia', 'Cyprus', 'Czech', 'Denmark', 'Estonia', 'Finland', 'France',
+        'Germany', 'Greece', 'Hungary', 'Iceland', 'Ireland', 'Italy', 'Latvia',
+        'Liechtenstein', 'Lithuania', 'Luxembourg', 'Malta', 'Moldova', 'Monaco',
+        'Montenegro', 'Netherlands', 'North Macedonia', 'Norway', 'Poland',
+        'Portugal', 'Romania', 'Russia', 'San Marino', 'Serbia', 'Slovakia',
+        'Slovenia', 'Spain', 'Sweden', 'Switzerland', 'Ukraine', 'United Kingdom',
+        'Vatican', 'Albania', 'Belarus', 'Croatia', 'Estonia', 'Latvia', 'Lithuania'
+      ],
+      'Asia': [
+        'Afghanistan', 'Armenia', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Bhutan',
+        'Brunei', 'Cambodia', 'China', 'Georgia', 'India', 'Indonesia', 'Iran',
+        'Iraq', 'Israel', 'Japan', 'Jordan', 'Kazakhstan', 'Kuwait', 'Kyrgyzstan',
+        'Laos', 'Lebanon', 'Malaysia', 'Maldives', 'Mongolia', 'Myanmar', 'Nepal',
+        'North Korea', 'Oman', 'Pakistan', 'Palestine', 'Philippines', 'Qatar',
+        'Saudi Arabia', 'Singapore', 'South Korea', 'Sri Lanka', 'Syria', 'Taiwan',
+        'Tajikistan', 'Thailand', 'Turkey', 'Turkmenistan', 'United Arab Emirates',
+        'Uzbekistan', 'Vietnam', 'Yemen'
+      ],
+      'Africa': [
+        'Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi',
+        'Cameroon', 'Cape Verde', 'Central African Republic', 'Chad', 'Comoros',
+        'Congo', 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Eswatini',
+        'Ethiopia', 'Gabon', 'Gambia', 'Ghana', 'Guinea', 'Guinea-Bissau', 'Ivory Coast',
+        'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi', 'Mali',
+        'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger',
+        'Nigeria', 'Rwanda', 'Sao Tome', 'Senegal', 'Seychelles', 'Sierra Leone',
+        'Somalia', 'South Africa', 'South Sudan', 'Sudan', 'Tanzania', 'Togo',
+        'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe'
+      ],
+      'North America': [
+        'Antigua', 'Bahamas', 'Barbados', 'Belize', 'Canada', 'Costa Rica', 'Cuba',
+        'Dominica', 'Dominican Republic', 'El Salvador', 'Grenada', 'Guatemala',
+        'Haiti', 'Honduras', 'Jamaica', 'Mexico', 'Nicaragua', 'Panama',
+        'Saint Kitts', 'Saint Lucia', 'Saint Vincent', 'Trinidad', 'United States'
+      ],
+      'South America': [
+        'Argentina', 'Bolivia', 'Brazil', 'Chile', 'Colombia', 'Ecuador', 'Guyana',
+        'Paraguay', 'Peru', 'Suriname', 'Uruguay', 'Venezuela'
+      ],
+      'Oceania': [
+        'Australia', 'Fiji', 'Kiribati', 'Marshall Islands', 'Micronesia', 'Nauru',
+        'New Zealand', 'Palau', 'Papua New Guinea', 'Samoa', 'Solomon Islands',
+        'Tonga', 'Tuvalu', 'Vanuatu'
+      ]
+    }
+
     countries.features.forEach(feature => {
       if (!feature.properties) return
       const name = feature.properties.NAME || ''
       const code = feature.properties.ISO_A2 || feature.properties.ISO_A3
       
-      // Simple region detection (can be improved)
-      if (name.includes('United States') || name.includes('Canada') || name.includes('Mexico') || 
-          name.includes('Cuba') || name.includes('Jamaica') || name.includes('Haiti')) {
-        regions['North America'].push({ name, code })
-      } else if (name.includes('Brazil') || name.includes('Argentina') || name.includes('Chile') ||
-                 name.includes('Peru') || name.includes('Colombia') || name.includes('Venezuela')) {
-        regions['South America'].push({ name, code })
-      } else if (name.includes('Australia') || name.includes('New Zealand') || name.includes('Fiji') ||
-                 name.includes('Papua')) {
-        regions['Oceania'].push({ name, code })
-      } else if (name.includes('China') || name.includes('Japan') || name.includes('India') ||
-                 name.includes('Thailand') || name.includes('Vietnam') || name.includes('Indonesia') ||
-                 name.includes('Korea') || name.includes('Philippines') || name.includes('Malaysia')) {
-        regions['Asia'].push({ name, code })
-      } else if (name.includes('Egypt') || name.includes('South Africa') || name.includes('Kenya') ||
-                 name.includes('Nigeria') || name.includes('Morocco') || name.includes('Tunisia')) {
-        regions['Africa'].push({ name, code })
-      } else if (name.includes('France') || name.includes('Germany') || name.includes('Italy') ||
-                 name.includes('Spain') || name.includes('United Kingdom') || name.includes('Greece') ||
-                 name.includes('Portugal') || name.includes('Netherlands') || name.includes('Belgium') ||
-                 name.includes('Switzerland') || name.includes('Austria') || name.includes('Poland') ||
-                 name.includes('Sweden') || name.includes('Norway') || name.includes('Denmark') ||
-                 name.includes('Finland') || name.includes('Ireland') || name.includes('Iceland')) {
-        regions['Europe'].push({ name, code })
-      } else {
-        regions['Other'].push({ name, code })
+      if (!name || !code) return
+      
+      // Try to match by region patterns
+      let matched = false
+      for (const [region, patterns] of Object.entries(regionPatterns)) {
+        if (patterns.some(pattern => name.includes(pattern) || name === pattern)) {
+          regions[region].push({ name, code })
+          matched = true
+          break
+        }
+      }
+      
+      // If no match, check common patterns
+      if (!matched) {
+        if (name.includes('United States') || name.includes('USA') || code === 'US') {
+          regions['North America'].push({ name, code })
+        } else if (name.includes('United Kingdom') || name.includes('UK') || code === 'GB') {
+          regions['Europe'].push({ name, code })
+        } else {
+          regions['Other'].push({ name, code })
+        }
       }
     })
 
@@ -77,6 +122,7 @@ function Sidebar({ countries, onCountrySelect, countryStatuses, visitedCountries
         name: feature.properties.NAME || '',
         code: feature.properties.ISO_A2 || feature.properties.ISO_A3
       }))
+      .filter(country => country.name && country.code)
       .slice(0, 20)
   }, [searchQuery, countries])
 
@@ -136,113 +182,131 @@ function Sidebar({ countries, onCountrySelect, countryStatuses, visitedCountries
       }}>
         {searchQuery.length > 0 ? (
           <div>
-            {filteredCountries.map((country, idx) => {
-              if (!country.code) return null
-              const status = countryStatuses[country.code]
+            {filteredCountries.length > 0 ? (
+              filteredCountries.map((country, idx) => {
+                if (!country.code) return null
+                const status = countryStatuses[country.code]
+                return (
+                  <div
+                    key={`${country.code}-${idx}`}
+                    onClick={() => {
+                      onCountrySelect(country.code)
+                      setSearchQuery('')
+                    }}
+                    style={{
+                      padding: '10px 12px',
+                      marginBottom: '4px',
+                      background: status ? (status === 'visited' ? '#e8f5e9' : '#fff3e0') : 'white',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      border: `1px solid ${status ? (status === 'visited' ? '#00ff00' : '#ff8800') : '#e0e0e0'}`,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f0f0f0'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = status ? (status === 'visited' ? '#e8f5e9' : '#fff3e0') : 'white'
+                    }}
+                  >
+                    <span style={{ fontSize: '14px' }}>{country.name}</span>
+                    {status && (
+                      <span style={{
+                        fontSize: '12px',
+                        color: status === 'visited' ? '#00ff00' : '#ff8800',
+                        fontWeight: 'bold'
+                      }}>
+                        {status === 'visited' ? '✓' : '⭐'}
+                      </span>
+                    )}
+                  </div>
+                )
+              })
+            ) : (
+              <div style={{
+                padding: '20px',
+                textAlign: 'center',
+                color: '#999',
+                fontSize: '14px'
+              }}>
+                No countries found
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            {Object.entries(countriesByRegion).map(([region, regionCountries]) => {
+              if (regionCountries.length === 0) return null
               return (
-                <div
-                  key={country.code}
-                  onClick={() => {
-                    onCountrySelect(country.code)
-                    setSearchQuery('')
-                  }}
-                  style={{
-                    padding: '10px 12px',
-                    marginBottom: '4px',
-                    background: status ? (status === 'visited' ? '#e8f5e9' : '#fff3e0') : 'white',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    border: `1px solid ${status ? (status === 'visited' ? '#00ff00' : '#ff8800') : '#e0e0e0'}`,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#f0f0f0'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = status ? (status === 'visited' ? '#e8f5e9' : '#fff3e0') : 'white'
-                  }}
-                >
-                  <span style={{ fontSize: '14px' }}>{country.name}</span>
-                  {status && (
-                    <span style={{
-                      fontSize: '12px',
-                      color: status === 'visited' ? '#00ff00' : '#ff8800',
-                      fontWeight: 'bold'
-                    }}>
-                      {status === 'visited' ? '✓' : '⭐'}
-                    </span>
+                <div key={region}>
+                  <div
+                    onClick={() => setExpandedContinent(expandedContinent === region ? null : region)}
+                    style={{
+                      padding: '10px 12px',
+                      fontWeight: 'bold',
+                      fontSize: '13px',
+                      color: '#666',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      userSelect: 'none',
+                      background: expandedContinent === region ? '#e9ecef' : 'transparent',
+                      borderRadius: '4px',
+                      marginBottom: '2px'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (expandedContinent !== region) {
+                        e.currentTarget.style.background = '#f0f0f0'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (expandedContinent !== region) {
+                        e.currentTarget.style.background = 'transparent'
+                      }
+                    }}
+                  >
+                    <span>{region} ({regionCountries.length})</span>
+                    <span>{expandedContinent === region ? '▼' : '▶'}</span>
+                  </div>
+                  {expandedContinent === region && regionCountries.length > 0 && (
+                    <div style={{ paddingLeft: '8px', maxHeight: '400px', overflowY: 'auto' }}>
+                      {regionCountries.map(country => {
+                        if (!country.code) return null
+                        const status = countryStatuses[country.code]
+                        return (
+                          <div
+                            key={country.code}
+                            onClick={() => onCountrySelect(country.code)}
+                            style={{
+                              padding: '8px 12px',
+                              marginBottom: '2px',
+                              background: status ? (status === 'visited' ? '#e8f5e9' : '#fff3e0') : 'white',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              transition: 'all 0.2s',
+                              border: status ? `1px solid ${status === 'visited' ? '#00ff00' : '#ff8800'}` : '1px solid transparent'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#f0f0f0'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = status ? (status === 'visited' ? '#e8f5e9' : '#fff3e0') : 'white'
+                            }}
+                          >
+                            {country.name}
+                          </div>
+                        )
+                      })}
+                    </div>
                   )}
                 </div>
               )
             })}
-          </div>
-        ) : (
-          <div>
-            {Object.entries(countriesByRegion).map(([region, countries]) => (
-              <div key={region}>
-                <div
-                  onClick={() => setExpandedContinent(expandedContinent === region ? null : region)}
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 'bold',
-                    fontSize: '13px',
-                    color: '#666',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    userSelect: 'none'
-                  }}
-                >
-                  <span>{region}</span>
-                  <span>{expandedContinent === region ? '▼' : '▶'}</span>
-                </div>
-                {expandedContinent === region && countries.length > 0 && (
-                  <div style={{ paddingLeft: '8px' }}>
-                    {countries.slice(0, 10).map(country => {
-                      if (!country.code) return null
-                      const status = countryStatuses[country.code]
-                      return (
-                        <div
-                          key={country.code}
-                          onClick={() => onCountrySelect(country.code)}
-                          style={{
-                            padding: '8px 12px',
-                            marginBottom: '2px',
-                            background: status ? (status === 'visited' ? '#e8f5e9' : '#fff3e0') : 'white',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            transition: 'all 0.2s'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#f0f0f0'
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = status ? (status === 'visited' ? '#e8f5e9' : '#fff3e0') : 'white'
-                          }}
-                        >
-                          {country.name}
-                        </div>
-                      )
-                    })}
-                    {countries.length > 10 && (
-                      <div style={{
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        color: '#999',
-                        fontStyle: 'italic'
-                      }}>
-                        +{countries.length - 10} more...
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
           </div>
         )}
       </div>
@@ -352,4 +416,3 @@ function Sidebar({ countries, onCountrySelect, countryStatuses, visitedCountries
 }
 
 export default Sidebar
-
