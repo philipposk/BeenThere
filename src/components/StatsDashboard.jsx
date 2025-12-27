@@ -25,10 +25,11 @@ function StatsDashboard({ countryStatuses, countries, onCountrySelect }) {
 
   const getCountryName = (code) => {
     if (!countries) return code
-    const feature = countries.features.find(f => 
-      (f.properties.ISO_A2 || f.properties.ISO_A3) === code
-    )
-    return feature?.properties.NAME || code
+    const feature = countries.features.find(f => {
+      const props = f.properties || {}
+      return (props.ISO_A2 || props.ISO_A3 || props.iso_a2 || props.iso_a3) === code
+    })
+    return feature?.properties?.NAME || feature?.properties?.name || code
   }
 
   return (

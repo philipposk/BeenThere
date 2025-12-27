@@ -7,11 +7,12 @@ function CountryStatusPanel({ selectedCountry, countryStatuses, onStatusChange, 
   // Get country name
   let countryName = selectedCountry
   if (countries) {
-    const feature = countries.features.find(f => 
-      (f.properties.ISO_A2 || f.properties.ISO_A3) === selectedCountry
-    )
+    const feature = countries.features.find(f => {
+      const props = f.properties || {}
+      return (props.ISO_A2 || props.ISO_A3 || props.iso_a2 || props.iso_a3) === selectedCountry
+    })
     if (feature) {
-      countryName = feature.properties.NAME || countryName
+      countryName = feature.properties.NAME || feature.properties.name || countryName
     }
   }
 

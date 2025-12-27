@@ -14,8 +14,8 @@ function SearchBar({ countries, searchQuery, onSearchChange, onCountrySelect, co
     return countries.features
       .filter(feature => {
         if (!feature.properties) return false
-        const name = (feature.properties.NAME || '').toLowerCase()
-        const code = (feature.properties.ISO_A2 || feature.properties.ISO_A3 || '').toLowerCase()
+        const name = (feature.properties.NAME || feature.properties.name || '').toLowerCase()
+        const code = (feature.properties.ISO_A2 || feature.properties.ISO_A3 || feature.properties.iso_a2 || feature.properties.iso_a3 || '').toLowerCase()
         return name.includes(query) || code.includes(query)
       })
       .slice(0, 10) // Limit to 10 results
@@ -79,7 +79,7 @@ function SearchBar({ countries, searchQuery, onSearchChange, onCountrySelect, co
             setIsOpen(false)
             searchRef.current?.blur()
           } else if (e.key === 'Enter' && filteredCountries.length > 0) {
-            const firstCode = filteredCountries[0].properties.ISO_A2 || filteredCountries[0].properties.ISO_A3
+            const firstCode = filteredCountries[0].properties.ISO_A2 || filteredCountries[0].properties.ISO_A3 || filteredCountries[0].properties.iso_a2 || filteredCountries[0].properties.iso_a3
             if (firstCode) {
               handleSelect(firstCode)
             }
@@ -116,8 +116,8 @@ function SearchBar({ countries, searchQuery, onSearchChange, onCountrySelect, co
         >
           {filteredCountries.map((feature, idx) => {
             if (!feature.properties) return null
-            const code = feature.properties.ISO_A2 || feature.properties.ISO_A3
-            const name = feature.properties.NAME || code
+            const code = feature.properties.ISO_A2 || feature.properties.ISO_A3 || feature.properties.iso_a2 || feature.properties.iso_a3
+            const name = feature.properties.NAME || feature.properties.name || code
             const status = countryStatuses[code]
             
             if (!code) return null

@@ -6,7 +6,10 @@ function Sidebar({ countries, onCountrySelect, countryStatuses, visitedCountries
 
   // Better region detection using continent codes or name patterns
   const countriesByRegion = useMemo(() => {
-    if (!countries || !countries.features) return {}
+    if (!countries || !countries.features) {
+      console.log('Sidebar: No countries data')
+      return {}
+    }
     
     const regions = {
       'Europe': [],
@@ -70,29 +73,48 @@ function Sidebar({ countries, onCountrySelect, countryStatuses, visitedCountries
 
     countries.features.forEach(feature => {
       if (!feature.properties) return
-      const name = feature.properties.NAME || ''
-      const code = feature.properties.ISO_A2 || feature.properties.ISO_A3
+      // Try different property name variations (GeoJSON can use different property names)
+      const name = (feature.properties.NAME || feature.properties.name || feature.properties.NAME_EN || feature.properties.NAME_LONG || '').trim()
+      const code = feature.properties.ISO_A2 || feature.properties.ISO_A3 || feature.properties.iso_a2 || feature.properties.iso_a3 || feature.properties.ISO || feature.properties.iso
       
-      if (!name || !code) return
+      if (!name) return
       
-      // Try to match by region patterns
+      // If no code, try to derive from name or use name as code
+      const countryCode = code || name.substring(0, 2).toUpperCase()
+      
+      // Try to match by region patterns (case-insensitive)
       let matched = false
+      const nameLower = name.toLowerCase()
+      const codeUpper = (countryCode || '').toUpperCase()
+      
       for (const [region, patterns] of Object.entries(regionPatterns)) {
-        if (patterns.some(pattern => name.includes(pattern) || name === pattern)) {
-          regions[region].push({ name, code })
+        if (patterns.some(pattern => {
+          const patternLower = pattern.toLowerCase()
+          return nameLower.includes(patternLower) || nameLower === patternLower || nameLower.startsWith(patternLower)
+        })) {
+          regions[region].push({ name, code: countryCode })
           matched = true
           break
         }
       }
       
-      // If no match, check common patterns
+      // If no match, check common patterns and country codes
       if (!matched) {
-        if (name.includes('United States') || name.includes('USA') || code === 'US') {
-          regions['North America'].push({ name, code })
-        } else if (name.includes('United Kingdom') || name.includes('UK') || code === 'GB') {
-          regions['Europe'].push({ name, code })
+        if (nameLower.includes('united states') || nameLower.includes('usa') || codeUpper === 'US' || codeUpper === 'USA') {
+          regions['North America'].push({ name, code: countryCode })
+        } else if (nameLower.includes('united kingdom') || nameLower.includes('uk') || codeUpper === 'GB' || codeUpper === 'GBR') {
+          regions['Europe'].push({ name, code: countryCode })
+        } else if (codeUpper === 'CA' || codeUpper === 'CAN' || nameLower.includes('canada')) {
+          regions['North America'].push({ name, code: countryCode })
+        } else if (codeUpper === 'MX' || codeUpper === 'MEX' || nameLower.includes('mexico')) {
+          regions['North America'].push({ name, code: countryCode })
+        } else if (codeUpper === 'AU' || codeUpper === 'AUS' || nameLower.includes('australia')) {
+          regions['Oceania'].push({ name, code: countryCode })
+        } else if (codeUpper === 'NZ' || codeUpper === 'NZL' || nameLower.includes('new zealand')) {
+          regions['Oceania'].push({ name, code: countryCode })
         } else {
-          regions['Other'].push({ name, code })
+          // Default to Other - put all unmatched here
+          regions['Other'].push({ name, code: countryCode })
         }
       }
     })
@@ -111,27 +133,31 @@ function Sidebar({ countries, onCountrySelect, countryStatuses, visitedCountries
     const query = searchQuery.toLowerCase().trim()
     if (query.length === 0) return []
     
-    return countries.features
+    const results = countries.features
       .filter(feature => {
         if (!feature.properties) return false
-        const name = (feature.properties.NAME || '').toLowerCase()
-        const code = (feature.properties.ISO_A2 || feature.properties.ISO_A3 || '').toLowerCase()
+        const name = (feature.properties.NAME || feature.properties.name || '').toLowerCase()
+        const code = (feature.properties.ISO_A2 || feature.properties.ISO_A3 || feature.properties.iso_a2 || feature.properties.iso_a3 || '').toLowerCase()
         return name.includes(query) || code.includes(query)
       })
-      .map(feature => ({
-        name: feature.properties.NAME || '',
-        code: feature.properties.ISO_A2 || feature.properties.ISO_A3
-      }))
-      .filter(country => country.name && country.code)
+      .map(feature => {
+        const name = feature.properties.NAME || feature.properties.name || ''
+        const code = feature.properties.ISO_A2 || feature.properties.ISO_A3 || feature.properties.iso_a2 || feature.properties.iso_a3 || name.substring(0, 2).toUpperCase()
+        return { name, code }
+      })
+      .filter(country => country.name)
       .slice(0, 20)
+    
+    return results
   }, [searchQuery, countries])
 
   const getCountryName = (code) => {
     if (!countries) return code
-    const feature = countries.features.find(f => 
-      (f.properties.ISO_A2 || f.properties.ISO_A3) === code
-    )
-    return feature?.properties.NAME || code
+    const feature = countries.features.find(f => {
+      const props = f.properties || {}
+      return (props.ISO_A2 || props.ISO_A3 || props.iso_a2 || props.iso_a3) === code
+    })
+    return feature?.properties?.NAME || feature?.properties?.name || code
   }
 
   return (
@@ -178,10 +204,11 @@ function Sidebar({ countries, onCountrySelect, countryStatuses, visitedCountries
       <div style={{
         flex: 1,
         overflowY: 'auto',
-        padding: '8px'
+        padding: '8px',
+        minHeight: 0
       }}>
         {searchQuery.length > 0 ? (
-          <div>
+          <div style={{ padding: '4px' }}>
             {filteredCountries.length > 0 ? (
               filteredCountries.map((country, idx) => {
                 if (!country.code) return null
@@ -238,8 +265,18 @@ function Sidebar({ countries, onCountrySelect, countryStatuses, visitedCountries
           </div>
         ) : (
           <div>
-            {Object.entries(countriesByRegion).map(([region, regionCountries]) => {
-              if (regionCountries.length === 0) return null
+            {Object.keys(countriesByRegion).length === 0 ? (
+              <div style={{
+                padding: '20px',
+                textAlign: 'center',
+                color: '#999',
+                fontSize: '14px'
+              }}>
+                Loading countries...
+              </div>
+            ) : (
+              Object.entries(countriesByRegion).map(([region, regionCountries]) => {
+                if (regionCountries.length === 0) return null
               return (
                 <div key={region}>
                   <div
@@ -306,7 +343,7 @@ function Sidebar({ countries, onCountrySelect, countryStatuses, visitedCountries
                   )}
                 </div>
               )
-            })}
+            }))}
           </div>
         )}
       </div>

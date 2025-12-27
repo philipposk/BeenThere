@@ -84,10 +84,11 @@ export async function generateKMLWithPolygons(countryStatuses, countriesGeoJSON)
 
   // Add visited countries placemarks
   countriesGeoJSON.features.forEach(feature => {
-    const code = feature.properties.ISO_A2 || feature.properties.ISO_A3
-    if (!visited.includes(code)) return
+    const props = feature.properties || {}
+    const code = props.ISO_A2 || props.ISO_A3 || props.iso_a2 || props.iso_a3
+    if (!code || !visited.includes(code)) return
 
-    const name = feature.properties.NAME || code
+    const name = props.NAME || props.name || code
     const coordString = processGeometry(feature.geometry)
     
     if (!coordString) return
@@ -117,10 +118,11 @@ export async function generateKMLWithPolygons(countryStatuses, countriesGeoJSON)
 
   // Add wishlist countries placemarks
   countriesGeoJSON.features.forEach(feature => {
-    const code = feature.properties.ISO_A2 || feature.properties.ISO_A3
-    if (!wishlist.includes(code)) return
+    const props = feature.properties || {}
+    const code = props.ISO_A2 || props.ISO_A3 || props.iso_a2 || props.iso_a3
+    if (!code || !wishlist.includes(code)) return
 
-    const name = feature.properties.NAME || code
+    const name = props.NAME || props.name || code
     const coordString = processGeometry(feature.geometry)
     
     if (!coordString) return

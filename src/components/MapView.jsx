@@ -30,11 +30,12 @@ function MapView({ countries, countryStatuses, onCountryClick, onCountrySelect, 
   }
 
   const countryStyle = (feature) => {
-    const code = feature.properties.ISO_A2 || feature.properties.ISO_A3
+    const props = feature.properties || {}
+    const code = props.ISO_A2 || props.ISO_A3 || props.iso_a2 || props.iso_a3
     const isSelected = code === selectedCountry
     const isSearched = searchQuery && (
-      (feature.properties.NAME || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      code.toLowerCase().includes(searchQuery.toLowerCase())
+      ((feature.properties.NAME || feature.properties.name || '').toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (code && code.toLowerCase().includes(searchQuery.toLowerCase()))
     )
     
     return {
@@ -47,8 +48,8 @@ function MapView({ countries, countryStatuses, onCountryClick, onCountrySelect, 
   }
 
   const onEachCountry = (feature, layer) => {
-    const code = feature.properties.ISO_A2 || feature.properties.ISO_A3
-    const name = feature.properties.NAME || code
+    const code = feature.properties.ISO_A2 || feature.properties.ISO_A3 || feature.properties.iso_a2 || feature.properties.iso_a3
+    const name = feature.properties.NAME || feature.properties.name || code
     
     layer.bindTooltip(name, {
       permanent: false,
@@ -80,9 +81,10 @@ function MapView({ countries, countryStatuses, onCountryClick, onCountrySelect, 
   // Zoom to selected country
   useEffect(() => {
     if (selectedCountry && countries && mapRef.current) {
-      const feature = countries.features.find(f => 
-        (f.properties.ISO_A2 || f.properties.ISO_A3) === selectedCountry
-      )
+      const feature = countries.features.find(f => {
+        const props = f.properties || {}
+        return (props.ISO_A2 || props.ISO_A3 || props.iso_a2 || props.iso_a3) === selectedCountry
+      })
       if (feature && feature.geometry) {
         const geoJsonLayer = L.geoJSON(feature)
         const bounds = geoJsonLayer.getBounds()
