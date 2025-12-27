@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
-function MapController({ countryStatuses, selectedCountry, searchQuery }) {
+function MapController({ countryStatuses, selectedCountry }) {
   const map = useMap()
 
   useEffect(() => {
@@ -16,7 +16,7 @@ function MapController({ countryStatuses, selectedCountry, searchQuery }) {
   return null
 }
 
-function MapView({ countries, countryStatuses, onCountryClick, onCountrySelect, selectedCountry, searchQuery }) {
+function MapView({ countries, countryStatuses, onCountryClick, onCountrySelect, selectedCountry, searchQuery = '' }) {
   const geoJsonRef = useRef(null)
   const mapRef = useRef(null)
 
@@ -117,7 +117,6 @@ function MapView({ countries, countryStatuses, onCountryClick, onCountrySelect, 
         <MapController 
           countryStatuses={countryStatuses} 
           selectedCountry={selectedCountry}
-          searchQuery={searchQuery}
         />
       </MapContainer>
     </div>

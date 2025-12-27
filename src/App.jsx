@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import MapView from './components/MapView'
 import CountryStatusPanel from './components/CountryStatusPanel'
 import DriveUpload from './components/DriveUpload'
 import StatsDashboard from './components/StatsDashboard'
-import SearchBar from './components/SearchBar'
+import Sidebar from './components/Sidebar'
 import { loadCountryData } from './utils/countryData'
 
 function App() {
@@ -11,7 +11,7 @@ function App() {
   const [selectedCountry, setSelectedCountry] = useState(null)
   const [countries, setCountries] = useState(null)
   const [showStats, setShowStats] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
     // Load saved statuses from localStorage
@@ -45,9 +45,24 @@ function App() {
     setSelectedCountry(countryCode)
   }
 
-  const handleSearchSelect = (countryCode) => {
-    setSelectedCountry(countryCode)
-    setSearchQuery('')
+  const visitedCountries = useMemo(() => {
+    return Object.entries(countryStatuses)
+      .filter(([_, status]) => status === 'visited')
+      .map(([code]) => code)
+  }, [countryStatuses])
+
+  const wishlistCountries = useMemo(() => {
+    return Object.entries(countryStatuses)
+      .filter(([_, status]) => status === 'wishlist')
+      .map(([code]) => code)
+  }, [countryStatuses])
+
+  const handleRemoveCountry = (code) => {
+    setCountryStatuses(prev => {
+      const newStatuses = { ...prev }
+      delete newStatuses[code]
+      return newStatuses
+    })
   }
 
   if (!countries) {
@@ -88,7 +103,7 @@ function App() {
             {showStats ? '🗺️ Map' : '📊 Stats'}
           </button>
         </div>
-        <p>Tap countries to mark as visited or wishlist</p>
+        <p>Click countries on the map or search to add them</p>
       </header>
 
       {showStats ? (
@@ -98,23 +113,47 @@ function App() {
           onCountrySelect={handleCountrySelect}
         />
       ) : (
-        <>
-          <SearchBar
-            countries={countries}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onCountrySelect={handleSearchSelect}
-            countryStatuses={countryStatuses}
-          />
-          <MapView
-            countries={countries}
-            countryStatuses={countryStatuses}
-            onCountryClick={handleCountryClick}
-            onCountrySelect={handleCountrySelect}
-            selectedCountry={selectedCountry}
-            searchQuery={searchQuery}
-          />
-        </>
+        <div style={{ display: 'flex', height: 'calc(100vh - 60px)' }}>
+          {sidebarOpen && (
+            <Sidebar
+              countries={countries}
+              onCountrySelect={handleCountrySelect}
+              countryStatuses={countryStatuses}
+              visitedCountries={visitedCountries}
+              wishlistCountries={wishlistCountries}
+              onRemoveCountry={handleRemoveCountry}
+            />
+          )}
+          <div style={{ flex: 1, position: 'relative' }}>
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              style={{
+                position: 'absolute',
+                top: '10px',
+                left: sidebarOpen ? '290px' : '10px',
+                zIndex: 1000,
+                background: 'white',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                padding: '8px 12px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                transition: 'left 0.3s'
+              }}
+            >
+              {sidebarOpen ? '◀' : '▶'}
+            </button>
+            <MapView
+              countries={countries}
+              countryStatuses={countryStatuses}
+              onCountryClick={handleCountryClick}
+              onCountrySelect={handleCountrySelect}
+              selectedCountry={selectedCountry}
+              searchQuery=""
+            />
+          </div>
+        </div>
       )}
 
       <CountryStatusPanel

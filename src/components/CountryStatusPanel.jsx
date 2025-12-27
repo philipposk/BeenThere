@@ -38,15 +38,14 @@ function CountryStatusPanel({ selectedCountry, countryStatuses, onStatusChange, 
   return (
     <div style={{
       position: 'fixed',
-      bottom: '120px',
-      left: '50%',
-      transform: 'translateX(-50%)',
+      bottom: '80px',
+      right: '20px',
       background: 'white',
       padding: '20px 24px',
-      borderRadius: '16px',
+      borderRadius: '12px',
       boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
       zIndex: 1000,
-      minWidth: '300px',
+      minWidth: '280px',
       maxWidth: '90%',
       textAlign: 'left'
     }}>

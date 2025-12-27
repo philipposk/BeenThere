@@ -40,9 +40,10 @@ function DriveUpload({ countryStatuses, countries }) {
       left: '0',
       right: '0',
       background: 'white',
-      padding: '16px',
+      padding: '12px 16px',
       boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
-      zIndex: 1000
+      zIndex: 1000,
+      borderTop: '1px solid #e0e0e0'
     }}>
       <div style={{
         display: 'flex',
