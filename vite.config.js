@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'icons/*.png'],
+      includeAssets: ['favicon.svg', 'favicon.ico', 'icons/*.png', 'icons/*.svg'],
       manifest: {
         name: 'BeenThere - Travel Map',
         short_name: 'BeenThere',

@@ -36,17 +36,9 @@ function App() {
   }, [countryStatuses])
 
   const handleCountryClick = (countryCode) => {
-    const current = countryStatuses[countryCode] || 'none'
-    const next = {
-      'none': 'visited',
-      'visited': 'wishlist',
-      'wishlist': 'none'
-    }[current]
-
-    setCountryStatuses(prev => ({
-      ...prev,
-      [countryCode]: next === 'none' ? undefined : next
-    }))
+    // Just select the country, don't change status on click
+    // User will use checkboxes in the panel
+    setSelectedCountry(countryCode)
   }
 
   const handleCountrySelect = (countryCode) => {
