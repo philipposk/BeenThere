@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? '/BeenThere/' : '/',
+  // Use /BeenThere/ for GitHub Pages, / for custom domain
+  base: process.env.VITE_BASE_PATH || (process.env.NODE_ENV === 'production' ? '/BeenThere/' : '/'),
   plugins: [
     react(),
     VitePWA({
@@ -17,7 +18,7 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: process.env.VITE_BASE_PATH || '/',
         icons: [
           {
             src: 'icons/icon-192.png',
