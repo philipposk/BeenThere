@@ -1,198 +1,94 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { continentOf } from '../utils/countryData'
 
-function SearchBar({ countries, searchQuery, onSearchChange, onCountrySelect, countryStatuses }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const searchRef = useRef(null)
-  const dropdownRef = useRef(null)
+const SearchIcon = () => (
+  <svg className="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-3.5-3.5" />
+  </svg>
+)
 
-  const filteredCountries = useMemo(() => {
-    if (!searchQuery || !countries || !countries.features) return []
-    
-    const query = searchQuery.toLowerCase().trim()
-    if (query.length === 0) return []
-    
-    return countries.features
-      .filter(feature => {
-        if (!feature.properties) return false
-        const name = (feature.properties.NAME || feature.properties.name || '').toLowerCase()
-        const code = (feature.properties.ISO_A2 || feature.properties.ISO_A3 || feature.properties.iso_a2 || feature.properties.iso_a3 || '').toLowerCase()
-        return name.includes(query) || code.includes(query)
-      })
-      .slice(0, 10) // Limit to 10 results
-  }, [searchQuery, countries])
+/**
+ * Floating search pill — substring match on country name, max 8 results,
+ * Cmd/Ctrl-K focuses, Esc closes.
+ */
+const SearchBar = forwardRef(function SearchBar({ countries, statuses, categories, onSelect }, externalRef) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+  const inputRef = useRef(null)
+  useImperativeHandle(externalRef, () => ({
+    focus: () => { inputRef.current?.focus(); setOpen(true) },
+  }), [])
 
-  const handleSelect = (code) => {
-    if (code) {
-      onCountrySelect(code)
-      setIsOpen(false)
-      onSearchChange('')
-      if (searchRef.current) {
-        searchRef.current.blur()
-      }
-    }
-  }
-
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target) &&
-        searchRef.current &&
-        !searchRef.current.contains(event.target)
-      ) {
-        setIsOpen(false)
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        inputRef.current?.focus()
+        setOpen(true)
       }
+      if (e.key === 'Escape') setOpen(false)
     }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
     }
-  }, [isOpen])
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [])
+
+  const catById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
+
+  const results = useMemo(() => {
+    if (!q.trim() || !countries) return []
+    const Q = q.trim().toLowerCase()
+    return countries.features
+      .filter((f) => ((f.properties?.name || '').toLowerCase().includes(Q)))
+      .slice(0, 8)
+      .map((f) => ({ id: String(f.id), name: f.properties.name }))
+  }, [q, countries])
 
   return (
-    <div style={{
-      position: 'relative',
-      zIndex: 1001,
-      padding: '8px 16px',
-      background: 'white',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-    }}>
-      <input
-        ref={searchRef}
-        type="text"
-        placeholder="🔍 Search countries..."
-        value={searchQuery}
-        onChange={(e) => {
-          const value = e.target.value
-          onSearchChange(value)
-          setIsOpen(value.length > 0)
-        }}
-        onFocus={() => {
-          if (searchQuery.length > 0) {
-            setIsOpen(true)
-          }
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            setIsOpen(false)
-            searchRef.current?.blur()
-          } else if (e.key === 'Enter' && filteredCountries.length > 0) {
-            const firstCode = filteredCountries[0].properties.ISO_A2 || filteredCountries[0].properties.ISO_A3 || filteredCountries[0].properties.iso_a2 || filteredCountries[0].properties.iso_a3
-            if (firstCode) {
-              handleSelect(firstCode)
-            }
-          }
-        }}
-        style={{
-          width: '100%',
-          padding: '12px 16px',
-          fontSize: '16px',
-          border: '2px solid #e0e0e0',
-          borderRadius: '8px',
-          outline: 'none',
-          transition: 'border-color 0.2s'
-        }}
-      />
-      
-      {isOpen && filteredCountries.length > 0 && (
-        <div
-          ref={dropdownRef}
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: '16px',
-            right: '16px',
-            background: 'white',
-            border: '1px solid #e0e0e0',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            maxHeight: '300px',
-            overflowY: 'auto',
-            marginTop: '4px',
-            zIndex: 1002
-          }}
-        >
-          {filteredCountries.map((feature, idx) => {
-            if (!feature.properties) return null
-            const code = feature.properties.ISO_A2 || feature.properties.ISO_A3 || feature.properties.iso_a2 || feature.properties.iso_a3
-            const name = feature.properties.NAME || feature.properties.name || code
-            const status = countryStatuses[code]
-            
-            if (!code) return null
-            
+    <div className="search-wrap" ref={wrapRef}>
+      <div className="search-bar">
+        <SearchIcon />
+        <input
+          ref={inputRef}
+          placeholder="Search any country…"
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+        />
+        <span className="kbd">⌘K</span>
+      </div>
+      {open && results.length > 0 && (
+        <div className="search-results">
+          {results.map((r) => {
+            const catId = statuses[r.id]
+            const cat = catId ? catById[catId] : null
             return (
               <div
-                key={`${code}-${idx}`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  handleSelect(code)
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault() // Prevent blur
-                }}
-                style={{
-                  padding: '12px 16px',
-                  cursor: 'pointer',
-                  borderBottom: idx < filteredCountries.length - 1 ? '1px solid #f0f0f0' : 'none',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  transition: 'background 0.2s',
-                  background: 'white'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#f5f5f5'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'white'
-                }}
+                key={r.id}
+                className="row"
+                onClick={() => { onSelect(r.id, r.name); setQ(''); setOpen(false) }}
               >
-                <span style={{ fontWeight: '500' }}>{name}</span>
-                {status && (
-                  <span style={{
-                    fontSize: '12px',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    background: status === 'visited' ? '#00ff00' : '#ff8800',
-                    color: '#000',
-                    fontWeight: 'bold'
-                  }}>
-                    {status === 'visited' ? '✓' : '⭐'}
-                  </span>
-                )}
+                <div className="row-text">
+                  <div className="name">{r.name}</div>
+                  <div className="meta">{continentOf(r.id)}</div>
+                </div>
+                {cat && <span className="dot" style={{ background: cat.color }} />}
               </div>
             )
           })}
         </div>
       )}
-      
-      {isOpen && searchQuery.length > 0 && filteredCountries.length === 0 && (
-        <div
-          ref={dropdownRef}
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: '16px',
-            right: '16px',
-            background: 'white',
-            border: '1px solid #e0e0e0',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            marginTop: '4px',
-            zIndex: 1002,
-            padding: '16px',
-            textAlign: 'center',
-            color: '#999'
-          }}
-        >
-          No countries found
-        </div>
-      )}
     </div>
   )
-}
+})
 
 export default SearchBar

@@ -171,6 +171,106 @@ async function uploadFile(kmlContent, filename, resolve, reject) {
   }
 }
 
+/**
+ * Upload arbitrary JSON content to Drive — used for state sync.
+ * @param {object} obj  Plain JSON-serializable object.
+ * @param {string} filename
+ */
+export async function uploadJSONToDrive(obj, filename = 'BeenThereState.json') {
+  await initGoogleAPI()
+  return new Promise((resolve, reject) => {
+    const token = window.gapi.client.getToken()
+    const body = JSON.stringify(obj)
+    const run = () => uploadJSONFile(body, filename, resolve, reject)
+    if (!token) {
+      tokenClient.callback = (resp) => {
+        if (resp.error !== undefined) return reject(new Error(resp.error))
+        run()
+      }
+      tokenClient.requestAccessToken({ prompt: 'consent' })
+    } else {
+      run()
+    }
+  })
+}
+
+async function uploadJSONFile(content, filename, resolve, reject) {
+  try {
+    const token = window.gapi.client.getToken()
+    if (!token) return reject(new Error('Not authenticated'))
+
+    // Find existing file.
+    let fileId = null
+    try {
+      const r = await window.gapi.client.drive.files.list({
+        q: `name='${filename}' and trashed=false`,
+        fields: 'files(id, name, modifiedTime)',
+        spaces: 'drive',
+      })
+      if (r.result.files?.length) fileId = r.result.files[0].id
+    } catch (e) { /* ignore */ }
+
+    const blob = new Blob([content], { type: 'application/json' })
+    const metadata = { name: filename, mimeType: 'application/json' }
+    const form = new FormData()
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
+    form.append('file', blob)
+
+    const url = fileId
+      ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`
+      : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
+    const method = fileId ? 'PATCH' : 'POST'
+    const res = await fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${token.access_token}` },
+      body: form,
+    })
+    if (!res.ok) throw new Error(`Upload failed: ${await res.text()}`)
+    const result = await res.json()
+    resolve(result.id)
+  } catch (err) { reject(err) }
+}
+
+/**
+ * Download JSON content from Drive. Returns null if file doesn't exist.
+ */
+export async function downloadJSONFromDrive(filename = 'BeenThereState.json') {
+  await initGoogleAPI()
+  return new Promise((resolve, reject) => {
+    const token = window.gapi.client.getToken()
+    const run = () => fetchJSONFile(filename, resolve, reject)
+    if (!token) {
+      tokenClient.callback = (resp) => {
+        if (resp.error !== undefined) return reject(new Error(resp.error))
+        run()
+      }
+      tokenClient.requestAccessToken({ prompt: 'consent' })
+    } else {
+      run()
+    }
+  })
+}
+
+async function fetchJSONFile(filename, resolve, reject) {
+  try {
+    const token = window.gapi.client.getToken()
+    if (!token) return reject(new Error('Not authenticated'))
+    const list = await window.gapi.client.drive.files.list({
+      q: `name='${filename}' and trashed=false`,
+      fields: 'files(id, name, modifiedTime)',
+      spaces: 'drive',
+    })
+    if (!list.result.files?.length) return resolve(null)
+    const fileId = list.result.files[0].id
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers: { Authorization: `Bearer ${token.access_token}` },
+    })
+    if (!res.ok) throw new Error(`Download failed: ${await res.text()}`)
+    const json = await res.json()
+    resolve({ data: json, modifiedTime: list.result.files[0].modifiedTime })
+  } catch (err) { reject(err) }
+}
+
 export function openMyMaps() {
   window.open('https://www.google.com/mymaps', '_blank')
 }
