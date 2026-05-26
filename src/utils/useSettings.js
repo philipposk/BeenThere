@@ -37,6 +37,7 @@ const DEFAULTS = {
   visitedColor: '#C0553A',
   wishlistColor: '#4F6B7B',
   showUSStates: false,
+  showCanadaProvinces: false,
 }
 
 // Lighten a hex color toward white by mixing in `amt` (0..1).

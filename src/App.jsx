@@ -7,8 +7,10 @@ import Detail from './components/Detail'
 import SettingsMenu from './components/SettingsMenu'
 import Cheatsheet from './components/Cheatsheet'
 import ContextMenu from './components/ContextMenu'
+import StatsPanel from './components/StatsPanel'
+import Timeline from './components/Timeline'
 import { loadCountryData } from './utils/countryData'
-import { loadUSStates } from './utils/subdivisions'
+import { loadUSStates, loadCanadaProvinces } from './utils/subdivisions'
 import { useSettings } from './utils/useSettings'
 import { useCategories } from './utils/useCategories'
 import { useHidden } from './utils/useHidden'
@@ -17,6 +19,8 @@ import { uploadToDrive, openMyMaps, uploadJSONToDrive, downloadJSONFromDrive } f
 import { getCat, withCat, addVisit, removeVisit, updateVisit, catMap } from './utils/statusSchema'
 import { downloadMapPNG, downloadMapSVG } from './utils/imageExport'
 import { buildShareURL, decodeShareState } from './utils/shareLink'
+import { exportCSV, importCSV, exportJSON, parseJSON, downloadText, pickFile } from './utils/dataIO'
+import { exportMarkedGeoJSON, exportMarkedGPX } from './utils/geoExport'
 
 const STATUSES_KEY = 'beenthere.statuses'
 
@@ -53,6 +57,9 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsScrollTo, setSettingsScrollTo] = useState(null)
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(false)
+  const [timelineOpen, setTimelineOpen] = useState(false)
+  const [statsScope, setStatsScope] = useState('all') // 'all' | 'un193'
   const [contextTarget, setContextTarget] = useState(null)
   const [exportState, setExportState] = useState({ status: 'idle', message: null })
 
@@ -83,22 +90,27 @@ function App() {
       .catch((err) => setLoadError(err.message))
   }, [])
 
-  // Lazy-load US states when enabled.
+  // Lazy-load subdivision overlays when enabled.
   const [usStates, setUSStates] = useState(null)
+  const [caProvs, setCaProvs] = useState(null)
   useEffect(() => {
-    if (!settings.showUSStates || usStates) return
-    loadUSStates().then(setUSStates).catch((err) => console.warn('US states load failed:', err))
-  }, [settings.showUSStates, usStates])
+    if (settings.showUSStates && !usStates) {
+      loadUSStates().then(setUSStates).catch((err) => console.warn('US states load failed:', err))
+    }
+    if (settings.showCanadaProvinces && !caProvs) {
+      loadCanadaProvinces().then(setCaProvs).catch((err) => console.warn('Canada provinces load failed:', err))
+    }
+  }, [settings.showUSStates, settings.showCanadaProvinces, usStates, caProvs])
 
-  // Merge country FC with US states FC when toggle on.
+  // Merge country FC with active subdivision overlays.
   const mergedFC = useMemo(() => {
     if (!countries) return null
-    if (!settings.showUSStates || !usStates) return countries
-    return {
-      type: 'FeatureCollection',
-      features: [...countries.features, ...usStates.features],
-    }
-  }, [countries, settings.showUSStates, usStates])
+    const extra = []
+    if (settings.showUSStates && usStates) extra.push(...usStates.features)
+    if (settings.showCanadaProvinces && caProvs) extra.push(...caProvs.features)
+    if (extra.length === 0) return countries
+    return { type: 'FeatureCollection', features: [...countries.features, ...extra] }
+  }, [countries, settings.showUSStates, settings.showCanadaProvinces, usStates, caProvs])
 
   // Persist statuses. Skip in read-only (shared) mode so we don't overwrite
   // the user's own data when they view someone else's map.
@@ -262,6 +274,70 @@ function App() {
     }
   }, [])
 
+  // ----- Data IO handlers -------------------------------------------------
+  const handleExportCSV = useCallback(() => {
+    downloadText('beenthere.csv', exportCSV({ statuses, nameMap, categories }), 'text/csv')
+  }, [statuses, nameMap, categories])
+
+  const handleExportJSON = useCallback(() => {
+    downloadText('beenthere.json',
+      exportJSON({ statuses, customCategories, hidden, settings }),
+      'application/json')
+  }, [statuses, customCategories, hidden, settings])
+
+  const handleExportGeoJSON = useCallback(() => {
+    if (!countries) return
+    downloadText('beenthere.geojson',
+      exportMarkedGeoJSON({ countries, statuses, categories }),
+      'application/geo+json')
+  }, [countries, statuses, categories])
+
+  const handleExportGPX = useCallback(() => {
+    if (!countries) return
+    downloadText('beenthere.gpx',
+      exportMarkedGPX({ countries, statuses, categories }),
+      'application/gpx+xml')
+  }, [countries, statuses, categories])
+
+  const handleImport = useCallback(async () => {
+    try {
+      const { name, text } = await pickFile()
+      if (name.toLowerCase().endsWith('.json')) {
+        const data = parseJSON(text)
+        if (!confirm('Replace current data with imported JSON?')) return
+        if (data.statuses) setStatuses(data.statuses)
+        if (Array.isArray(data.customCategories)) {
+          localStorage.setItem('beenthere.categories', JSON.stringify(data.customCategories))
+        }
+        if (Array.isArray(data.hidden)) {
+          localStorage.setItem('beenthere.hidden', JSON.stringify(data.hidden))
+        }
+        if (data.settings) {
+          localStorage.setItem('beenthere.settings', JSON.stringify(data.settings))
+        }
+        setTimeout(() => window.location.reload(), 200)
+      } else if (name.toLowerCase().endsWith('.csv')) {
+        const { statuses: imported, skipped, addedVisits } = importCSV(text, categories)
+        const count = Object.keys(imported).length
+        if (!confirm(`Import ${count} countries (${addedVisits} trips)?${skipped.length ? `\n${skipped.length} rows skipped.` : ''}`)) return
+        setStatuses((prev) => {
+          // Merge: imported wins on category; merge visits.
+          const next = { ...prev }
+          for (const [id, entry] of Object.entries(imported)) {
+            const existing = next[id]
+            const existingVisits = (existing && typeof existing === 'object' && Array.isArray(existing.visits)) ? existing.visits : []
+            next[id] = { cat: entry.cat, visits: [...existingVisits, ...entry.visits] }
+          }
+          return next
+        })
+      } else {
+        alert(`Unsupported file: ${name}. Use .csv or .json.`)
+      }
+    } catch (err) {
+      if (err.message !== 'No file chosen') alert(`Import failed: ${err.message}`)
+    }
+  }, [categories])
+
   const exitReadOnly = useCallback(() => {
     if (!readOnly) return
     history.replaceState(null, '', window.location.pathname)
@@ -316,6 +392,8 @@ function App() {
         e.preventDefault()
         if (e.key === 's') { setSettingsScrollTo(null); setSettingsOpen(true) }
         else if (e.key === 'h') { setSettingsScrollTo('hidden'); setSettingsOpen(true) }
+        else if (e.key === 'k') { setStatsOpen(true) }
+        else if (e.key === 't') { setTimelineOpen(true) }
         clearLeader()
         return
       }
@@ -502,6 +580,8 @@ function App() {
         tab={tab}
         setTab={setTab}
         onExport={handleExport}
+        onStats={() => setStatsOpen(true)}
+        onTimeline={() => setTimelineOpen(true)}
       />
 
       <main className="stage">
@@ -551,6 +631,11 @@ function App() {
             onPullFromDrive={readOnly ? null : handleDrivePull}
             onPushToDrive={readOnly ? null : handleDrivePush}
             syncStatus={syncStatus}
+            onExportCSV={handleExportCSV}
+            onExportJSON={handleExportJSON}
+            onExportGeoJSON={handleExportGeoJSON}
+            onExportGPX={handleExportGPX}
+            onImport={readOnly ? null : handleImport}
           />
         </div>
 
@@ -634,6 +719,25 @@ function App() {
       </main>
 
       <Cheatsheet open={cheatsheetOpen} onClose={() => setCheatsheetOpen(false)} />
+
+      <StatsPanel
+        open={statsOpen}
+        onClose={() => setStatsOpen(false)}
+        cats={cats}
+        statuses={statuses}
+        categories={categories}
+        totalCountries={countries ? countries.features.length : 0}
+        scope={statsScope}
+        onScopeChange={setStatsScope}
+      />
+
+      <Timeline
+        open={timelineOpen}
+        onClose={() => setTimelineOpen(false)}
+        statuses={statuses}
+        nameMap={nameMap}
+        onSelectCountry={handleSelect}
+      />
     </div>
   )
 }

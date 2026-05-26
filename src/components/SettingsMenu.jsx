@@ -35,6 +35,11 @@ function SettingsMenu({
   onPullFromDrive,
   onPushToDrive,
   syncStatus,
+  onExportCSV,
+  onExportJSON,
+  onExportGeoJSON,
+  onExportGPX,
+  onImport,
 }) {
   const ref = useRef(null)
   const hiddenSectionRef = useRef(null)
@@ -106,6 +111,14 @@ function SettingsMenu({
           />
           US states
         </label>
+        <label className="toggle-row">
+          <input
+            type="checkbox"
+            checked={!!settings.showCanadaProvinces}
+            onChange={(e) => updateSettings({ showCanadaProvinces: e.target.checked })}
+          />
+          Canada provinces
+        </label>
       </Section>
 
       <Section label="Wishlist color">
@@ -170,6 +183,16 @@ function SettingsMenu({
           >
             Add
           </button>
+        </div>
+      </Section>
+
+      <Section label="Import / export" hint="Round-trip your data as files.">
+        <div className="sync-row" style={{ flexWrap: 'wrap' }}>
+          {onImport && <button className="btn small" onClick={onImport}>↥ Import…</button>}
+          {onExportCSV && <button className="btn small" onClick={onExportCSV}>CSV</button>}
+          {onExportJSON && <button className="btn small" onClick={onExportJSON}>JSON</button>}
+          {onExportGeoJSON && <button className="btn small" onClick={onExportGeoJSON}>GeoJSON</button>}
+          {onExportGPX && <button className="btn small" onClick={onExportGPX}>GPX</button>}
         </div>
       </Section>
 

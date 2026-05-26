@@ -16,6 +16,8 @@ function Rail({
   tab,
   setTab,
   onExport,
+  onStats,
+  onTimeline,
 }) {
   // Group country IDs by category.
   const grouped = useMemo(() => {
@@ -126,7 +128,11 @@ function Rail({
 
       <div className="rail-foot">
         <span>Saved locally</span>
-        <button className="link" onClick={onExport}>Export ↗</button>
+        <div className="rail-foot-actions">
+          {onStats && <button className="link" onClick={onStats}>Stats</button>}
+          {onTimeline && <button className="link" onClick={onTimeline}>Look back</button>}
+          {onExport && <button className="link" onClick={onExport}>Export ↗</button>}
+        </div>
       </div>
     </aside>
   )

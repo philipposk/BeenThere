@@ -23,6 +23,8 @@ function Cheatsheet({ open, onClose }) {
         ['f',           'Focus search'],
         ['g s',         'Open Settings'],
         ['g h',         'Open Hidden-countries manager'],
+        ['g k',         'Open Stats'],
+        ['g t',         'Open Look-back timeline'],
         ['Esc',         'Close popovers / detail'],
       ],
     },
