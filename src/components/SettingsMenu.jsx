@@ -39,7 +39,11 @@ function SettingsMenu({
   onExportJSON,
   onExportGeoJSON,
   onExportGPX,
+  onExportPDF,
   onImport,
+  onImportPolarsteps,
+  onImportGoogleTimeline,
+  onCompare,
 }) {
   const ref = useRef(null)
   const hiddenSectionRef = useRef(null)
@@ -193,7 +197,29 @@ function SettingsMenu({
           {onExportJSON && <button className="btn small" onClick={onExportJSON}>JSON</button>}
           {onExportGeoJSON && <button className="btn small" onClick={onExportGeoJSON}>GeoJSON</button>}
           {onExportGPX && <button className="btn small" onClick={onExportGPX}>GPX</button>}
+          {onExportPDF && <button className="btn small" onClick={onExportPDF}>PDF passport</button>}
         </div>
+      </Section>
+
+      <Section label="Import from apps" hint="Bring in trips from Polarsteps or Google Maps.">
+        <div className="sync-row" style={{ flexWrap: 'wrap' }}>
+          {onImportPolarsteps && (
+            <button className="btn small" onClick={onImportPolarsteps}>Polarsteps JSON</button>
+          )}
+          {onImportGoogleTimeline && (
+            <button className="btn small" onClick={onImportGoogleTimeline}>Google Timeline JSON</button>
+          )}
+        </div>
+        <p className="muted" style={{ marginTop: 6, fontSize: '0.72rem' }}>
+          Polarsteps: export from Settings → Privacy → Download data (userdata.json).<br />
+          Google: Takeout → Location History → Semantic Location History/*.json.
+        </p>
+      </Section>
+
+      <Section label="Compare with a friend" hint="Overlay two maps and see who's been where.">
+        {onCompare && (
+          <button className="btn small" onClick={() => { onClose(); onCompare() }}>Open compare →</button>
+        )}
       </Section>
 
       <Section label="Drive sync" hint="Back up and restore via Google Drive.">

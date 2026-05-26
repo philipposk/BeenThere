@@ -42,8 +42,23 @@ export function updateVisit(entry, idx, patch) {
   return withVisits(entry, visits)
 }
 
-// Build a { [id]: categoryId } map for code paths that only care about
-// category (rail counts, map fills, KML).
+// ----- Plan trip (wishlist target date + priority) -------------------------
+
+export function getPlan(entry) {
+  if (!entry || typeof entry === 'string') return null
+  return entry.plan || null
+}
+
+export function withPlan(entry, plan) {
+  const cat    = getCat(entry)
+  const visits = getVisits(entry)
+  if (!cat) return null
+  if (!plan) return { cat, visits }
+  return { cat, visits, plan }
+}
+
+// ----- Build a { [id]: categoryId } map ------------------------------------
+// Used by code paths that only care about category (rail counts, map fills, KML).
 export function catMap(statuses) {
   const out = {}
   for (const [id, entry] of Object.entries(statuses || {})) {

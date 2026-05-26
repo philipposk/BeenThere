@@ -1,4 +1,5 @@
 import { feature } from 'topojson-client'
+import { idbGet, idbSet } from './idbCache'
 
 const TOPO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
 
@@ -24,10 +25,22 @@ export function continentOf(id) {
 
 // Load world-atlas TopoJSON and convert to GeoJSON FeatureCollection.
 // Each feature.id is the numeric ISO-3166 code (e.g. "840" for USA).
+// The raw TopoJSON is cached in IndexedDB after first load so the app works
+// fully offline on subsequent visits.
 export async function loadCountryData() {
-  const res = await fetch(TOPO_URL)
-  if (!res.ok) throw new Error('Failed to fetch country topojson')
-  const topo = await res.json()
+  let topo = null
+
+  // Try IDB cache first.
+  try { topo = await idbGet(TOPO_URL) } catch { /* ignore */ }
+
+  if (!topo) {
+    const res = await fetch(TOPO_URL)
+    if (!res.ok) throw new Error('Failed to fetch country topojson')
+    topo = await res.json()
+    // Cache asynchronously — don't block render.
+    idbSet(TOPO_URL, topo).catch(() => {})
+  }
+
   const fc = feature(topo, topo.objects.countries)
   // Normalize feature.id to string for consistent key comparisons.
   for (const f of fc.features) f.id = String(f.id)

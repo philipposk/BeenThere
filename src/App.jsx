@@ -9,6 +9,7 @@ import Cheatsheet from './components/Cheatsheet'
 import ContextMenu from './components/ContextMenu'
 import StatsPanel from './components/StatsPanel'
 import Timeline from './components/Timeline'
+import ComparePanel from './components/ComparePanel'
 import { loadCountryData } from './utils/countryData'
 import { loadUSStates, loadCanadaProvinces } from './utils/subdivisions'
 import { useSettings } from './utils/useSettings'
@@ -16,11 +17,13 @@ import { useCategories } from './utils/useCategories'
 import { useHidden } from './utils/useHidden'
 import { generateKMLWithPolygons } from './utils/kmlGenerator'
 import { uploadToDrive, openMyMaps, uploadJSONToDrive, downloadJSONFromDrive } from './utils/googleDrive'
-import { getCat, withCat, addVisit, removeVisit, updateVisit, catMap } from './utils/statusSchema'
+import { getCat, withCat, addVisit, removeVisit, updateVisit, withPlan, catMap } from './utils/statusSchema'
 import { downloadMapPNG, downloadMapSVG } from './utils/imageExport'
 import { buildShareURL, decodeShareState } from './utils/shareLink'
 import { exportCSV, importCSV, exportJSON, parseJSON, downloadText, pickFile } from './utils/dataIO'
 import { exportMarkedGeoJSON, exportMarkedGPX } from './utils/geoExport'
+import { downloadPassportPDF } from './utils/pdfExport'
+import { parsePolarstepsJSON, parseGoogleTimelineJSON, injectNameMap } from './utils/polarstepsImporter'
 
 const STATUSES_KEY = 'beenthere.statuses'
 
@@ -59,6 +62,7 @@ function App() {
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
   const [timelineOpen, setTimelineOpen] = useState(false)
+  const [compareOpen, setCompareOpen] = useState(false)
   const [statsScope, setStatsScope] = useState('all') // 'all' | 'un193'
   const [contextTarget, setContextTarget] = useState(null)
   const [exportState, setExportState] = useState({ status: 'idle', message: null })
@@ -150,6 +154,9 @@ function App() {
     return m
   }, [mergedFC])
 
+  // Inject nameMap into Polarsteps importer for Google Timeline country matching.
+  useEffect(() => { injectNameMap(nameMap) }, [nameMap])
+
   const visibleCount = countries ? countries.features.length - hidden.size : 0
 
   const handleSelect = useCallback((id, name) => {
@@ -195,6 +202,16 @@ function App() {
       const entry = prev[selectedId]
       if (!entry) return prev
       return { ...prev, [selectedId]: updateVisit(entry, idx, patch) }
+    })
+  }, [selectedId])
+
+  // Plan trip (wishlist target date + priority).
+  const handleUpdatePlan = useCallback((plan) => {
+    if (!selectedId) return
+    setStatuses((prev) => {
+      const entry = prev[selectedId]
+      if (!entry) return prev
+      return { ...prev, [selectedId]: withPlan(entry, plan) }
     })
   }, [selectedId])
 
@@ -298,6 +315,58 @@ function App() {
       exportMarkedGPX({ countries, statuses, categories }),
       'application/gpx+xml')
   }, [countries, statuses, categories])
+
+  // PDF passport export.
+  const handleExportPDF = useCallback(() => {
+    downloadPassportPDF({ statuses, categories, nameMap })
+  }, [statuses, categories, nameMap])
+
+  // Third-party importers (Polarsteps / Google Maps Timeline).
+  const handleImportPolarsteps = useCallback(async () => {
+    try {
+      const { text } = await pickFile({ accept: '.json' })
+      const { statuses: imported, unknownCodes, skipped } = parsePolarstepsJSON(text)
+      const count = Object.keys(imported).length
+      const msg = [
+        `Import ${count} countries from Polarsteps?`,
+        skipped    ? `${skipped} steps had no location.`  : '',
+        unknownCodes?.length ? `${unknownCodes.length} unknown country codes: ${unknownCodes.slice(0, 5).join(', ')}` : '',
+      ].filter(Boolean).join('\n')
+      if (!confirm(msg)) return
+      setStatuses((prev) => {
+        const next = { ...prev }
+        for (const [id, entry] of Object.entries(imported)) {
+          next[id] = entry
+        }
+        return next
+      })
+    } catch (err) {
+      if (err.message !== 'No file chosen') alert(`Polarsteps import failed: ${err.message}`)
+    }
+  }, [])
+
+  const handleImportGoogleTimeline = useCallback(async () => {
+    try {
+      const { text } = await pickFile({ accept: '.json' })
+      const { statuses: imported, unknownNames, skipped } = parseGoogleTimelineJSON(text)
+      const count = Object.keys(imported).length
+      const msg = [
+        `Import ${count} countries from Google Timeline?`,
+        skipped ? `${skipped} entries skipped.` : '',
+        unknownNames?.length ? `${unknownNames.length} unrecognised names.` : '',
+      ].filter(Boolean).join('\n')
+      if (!confirm(msg)) return
+      setStatuses((prev) => {
+        const next = { ...prev }
+        for (const [id, entry] of Object.entries(imported)) {
+          next[id] = entry
+        }
+        return next
+      })
+    } catch (err) {
+      if (err.message !== 'No file chosen') alert(`Google Timeline import failed: ${err.message}`)
+    }
+  }, [])
 
   const handleImport = useCallback(async () => {
     try {
@@ -635,7 +704,11 @@ function App() {
             onExportJSON={handleExportJSON}
             onExportGeoJSON={handleExportGeoJSON}
             onExportGPX={handleExportGPX}
+            onExportPDF={handleExportPDF}
             onImport={readOnly ? null : handleImport}
+            onImportPolarsteps={readOnly ? null : handleImportPolarsteps}
+            onImportGoogleTimeline={readOnly ? null : handleImportGoogleTimeline}
+            onCompare={() => setCompareOpen(true)}
           />
         </div>
 
@@ -666,6 +739,7 @@ function App() {
           onAddVisit={handleAddVisit}
           onRemoveVisit={handleRemoveVisit}
           onUpdateVisit={handleUpdateVisit}
+          onUpdatePlan={handleUpdatePlan}
           onClose={() => { setSelectedId(null); setSelectedName(null) }}
           onHide={(id) => handleHide(id, selectedName)}
           readOnly={readOnly}
@@ -737,6 +811,13 @@ function App() {
         statuses={statuses}
         nameMap={nameMap}
         onSelectCountry={handleSelect}
+      />
+
+      <ComparePanel
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        myStatuses={cats}
+        nameMap={nameMap}
       />
     </div>
   )

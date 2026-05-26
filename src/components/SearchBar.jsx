@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { continentOf } from '../utils/countryData'
+import { COUNTRY_INFO } from '../utils/countryInfo'
 
 const SearchIcon = () => (
   <svg className="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -47,10 +48,28 @@ const SearchBar = forwardRef(function SearchBar({ countries, statuses, categorie
   const results = useMemo(() => {
     if (!q.trim() || !countries) return []
     const Q = q.trim().toLowerCase()
-    return countries.features
-      .filter((f) => ((f.properties?.name || '').toLowerCase().includes(Q)))
-      .slice(0, 8)
-      .map((f) => ({ id: String(f.id), name: f.properties.name }))
+    const hits = []
+    for (const f of countries.features) {
+      const id   = String(f.id)
+      const name = f.properties?.name || ''
+      const info = COUNTRY_INFO[id] || {}
+      const capital  = info.capital  || ''
+      const currency = info.currency || ''
+      const nameLow = name.toLowerCase()
+      const capLow  = capital.toLowerCase()
+      const curLow  = currency.toLowerCase()
+      if (nameLow.includes(Q) || capLow.includes(Q) || curLow.includes(Q)) {
+        // Record which field matched for the subtitle hint.
+        let matchHint = null
+        if (!nameLow.includes(Q)) {
+          if (capLow.includes(Q))  matchHint = `capital: ${capital}`
+          else                     matchHint = `currency: ${currency}`
+        }
+        hits.push({ id, name, matchHint })
+        if (hits.length >= 8) break
+      }
+    }
+    return hits
   }, [q, countries])
 
   return (
@@ -79,7 +98,10 @@ const SearchBar = forwardRef(function SearchBar({ countries, statuses, categorie
               >
                 <div className="row-text">
                   <div className="name">{r.name}</div>
-                  <div className="meta">{continentOf(r.id)}</div>
+                  <div className="meta">
+                    {continentOf(r.id)}
+                    {r.matchHint && <span className="match-hint"> · {r.matchHint}</span>}
+                  </div>
                 </div>
                 {cat && <span className="dot" style={{ background: cat.color }} />}
               </div>

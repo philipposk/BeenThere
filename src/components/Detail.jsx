@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { continentOf } from '../utils/countryData'
 import { COUNTRY_INFO } from '../utils/countryInfo'
-import { getVisits } from '../utils/statusSchema'
+import { getVisits, getPlan } from '../utils/statusSchema'
 
 /**
  * Bottom-right detail card for the selected country.
@@ -20,16 +20,20 @@ function Detail({
   onAddVisit,
   onRemoveVisit,
   onUpdateVisit,
+  onUpdatePlan,
   onClose,
   onHide,
   readOnly = false,
 }) {
   if (!id) return null
   const continent = continentOf(id)
-  const info = COUNTRY_INFO[String(id)] || {}
-  const visits = getVisits(entry)
+  const info    = COUNTRY_INFO[String(id)] || {}
+  const visits  = getVisits(entry)
+  const plan    = getPlan(entry)
   const [newDate, setNewDate] = useState(new Date().toISOString().slice(0, 10))
   const [newNote, setNewNote] = useState('')
+
+  const isWishlist = currentCategoryId === 'wishlist'
 
   const submitVisit = () => {
     if (!newDate) return
@@ -124,6 +128,42 @@ function Detail({
                 onKeyDown={(e) => { if (e.key === 'Enter') submitVisit() }}
               />
               <button className="btn small" onClick={submitVisit}>+ Trip</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isWishlist && (
+        <div className="plan-section">
+          <div className="visits-label">Plan trip</div>
+          <div className="plan-fields">
+            <label className="plan-field">
+              <span>Target date</span>
+              <input
+                type="month"
+                value={plan?.targetDate || ''}
+                onChange={(e) => !readOnly && onUpdatePlan?.({ ...plan, targetDate: e.target.value })}
+                disabled={readOnly}
+              />
+            </label>
+            <label className="plan-field">
+              <span>Priority</span>
+              <select
+                value={plan?.priority || ''}
+                onChange={(e) => !readOnly && onUpdatePlan?.({ ...plan, priority: e.target.value })}
+                disabled={readOnly}
+              >
+                <option value="">—</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High ⭐</option>
+              </select>
+            </label>
+          </div>
+          {plan?.targetDate && (
+            <div className="plan-summary muted">
+              {plan.priority ? `${plan.priority.charAt(0).toUpperCase() + plan.priority.slice(1)} priority · ` : ''}
+              Target: {plan.targetDate}
             </div>
           )}
         </div>

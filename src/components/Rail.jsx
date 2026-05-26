@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { continentOf } from '../utils/countryData'
+import { COUNTRY_INFO } from '../utils/countryInfo'
 
 /**
  * Left rail: brand, hero stat (primary category = "visited"), per-category
@@ -115,7 +116,12 @@ function Rail({
                 >
                   <div className="idx">{String(i + 1).padStart(2, '0')}</div>
                   <div className="row-text">
-                    <div className="name">{name}</div>
+                    <div className="name">
+                      {COUNTRY_INFO[id]?.flag && (
+                        <span className="row-flag">{COUNTRY_INFO[id].flag}</span>
+                      )}
+                      {name}
+                    </div>
                     <div className="meta">{continentOf(id)}</div>
                   </div>
                   <span className="row-dot" style={{ background: activeCategory ? activeCategory.color : 'var(--muted)' }} />
