@@ -1,117 +1,31 @@
-# 🌍 BeenThere - Travel Map
+# BeenThere — Your Personal Travel Map
 
-**Track your travels, visualize your adventures, and share your journey with the world.**
+An app that helps you remember which countries you've visited and which ones you'd love to see, and shows them on a colourful world map. Tap a country to mark it as "been there" or "want to go," watch your stats grow, and export your map so you can open it inside Google Maps and share your adventures.
 
-BeenThere is a Progressive Web App that lets you mark countries you've visited and want to visit on an interactive world map. Export your personalized travel map directly to Google Drive and import it into Google My Maps to view your colored countries in the Google Maps app—perfect for tracking your wanderlust and sharing your adventures.
+## What it does
+- Shows an interactive world map you tap to mark countries as visited (green) or wishlist (orange)
+- Tracks your progress — how many countries you've seen and what percentage of the world that covers
+- Has a search bar to quickly find any country
+- Saves your map to your Google Drive and lets you open it in Google Maps
+- Remembers your choices right in your browser, so your map is there next time
+- Can be installed on your phone like a regular app
 
-## Features
+## Status
+Working app. It's a website that also installs on your phone like an app (a "Progressive Web App"). Saving to Google Drive needs a one-time Google sign-in; everything else works straight away.
 
-- ✅ **Interactive World Map** - Tap countries to mark them as visited or wishlist
-- 📊 **Statistics Dashboard** - View your travel progress with beautiful stats
-- 🔍 **Country Search** - Quickly find and select any country
-- 📤 **Google Drive Integration** - Upload KML files directly to your Drive
-- 🗺️ **Google Maps Export** - Import your map into Google My Maps
-- 💾 **Local Storage** - Your data is saved locally in your browser
-- 📱 **PWA Support** - Install as an app on your phone
+---
+### For developers
+React + Vite single-page PWA. Map rendering via Leaflet / React Leaflet. Travel state persists in browser `localStorage`. Export builds a KML file (real country polygon coordinates) and uploads to Google Drive via the Drive API + OAuth, for import into Google My Maps. Country shapes come from a public GeoJSON source.
 
-## Setup
-
-### 1. Install Dependencies
+Setup:
 
 ```bash
 npm install
+# create .env with:
+#   VITE_GOOGLE_CLIENT_ID=...
+#   VITE_GOOGLE_API_KEY=...
+npm run dev      # http://localhost:5173
+npm run build    # output in dist/
 ```
 
-### 2. Google Drive API Setup
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project (or select existing)
-3. Enable **Google Drive API**
-4. Go to **Credentials** → **Create Credentials** → **OAuth 2.0 Client ID**
-5. Choose **Web application**
-6. Add authorized origins:
-   - `http://localhost:5173` (for development)
-   - Your production domain (for deployment)
-7. Copy your **Client ID** and **API Key**
-
-### 3. Configure Environment Variables
-
-Create a `.env` file in the root directory:
-
-```env
-VITE_GOOGLE_CLIENT_ID=your_client_id_here
-VITE_GOOGLE_API_KEY=your_api_key_here
-```
-
-### 4. Run Development Server
-
-```bash
-npm run dev
-```
-
-The app will be available at `http://localhost:5173`
-
-## Usage
-
-1. **Mark Countries**: Tap any country on the map to cycle through states:
-   - None → Visited (green) → Wishlist (orange) → None
-
-2. **View Stats**: Click the "📊 Stats" button to see:
-   - Total visited countries
-   - Total wishlist countries
-   - Percentage of world covered
-   - Lists of all marked countries
-
-3. **Search**: Use the search bar to quickly find countries
-
-4. **Export to Google Maps**:
-   - Click "📤 Upload to Drive"
-   - Authorize Google Drive access (first time only)
-   - Click "🗺️ Open My Maps"
-   - Create a new map or open existing
-   - Click "Import" → Select "MyCountries.kml"
-   - View your colored countries in Google Maps!
-
-## Build for Production
-
-```bash
-npm run build
-```
-
-The built files will be in the `dist` folder.
-
-## PWA Icons
-
-To enable full PWA functionality, add icon files:
-- `public/icons/icon-192.png` (192x192 pixels)
-- `public/icons/icon-512.png` (512x512 pixels)
-
-You can generate these using tools like [PWA Asset Generator](https://github.com/onderceylan/pwa-asset-generator).
-
-## Tech Stack
-
-- **React** - UI framework
-- **Vite** - Build tool
-- **Leaflet** - Interactive maps
-- **React Leaflet** - React bindings for Leaflet
-- **Google Drive API** - File upload
-- **PWA Plugin** - Progressive Web App support
-
-## Browser Support
-
-- Chrome/Edge (recommended)
-- Firefox
-- Safari (iOS 11.3+)
-- Mobile browsers with PWA support
-
-## License
-
-MIT
-
-## Notes
-
-- Country data is loaded from a public GeoJSON source
-- All data is stored locally in your browser (localStorage)
-- Google Drive upload requires OAuth authentication
-- KML files use actual country polygon coordinates for accurate maps
-
+Google Cloud setup: enable the Drive API, create an OAuth 2.0 Web Client ID, and add `http://localhost:5173` (and your production domain) as authorized origins. PWA icons go in `public/icons/` (192px and 512px). MIT licensed. More docs: `DEPLOYMENT.md`, `QUICK_DEPLOY.md`, `SETUP.md`.
